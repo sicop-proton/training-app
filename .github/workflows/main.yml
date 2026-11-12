@@ -64,7 +64,7 @@ jobs:
 
       - name: check
         run: |
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TS }} --hostname=gh-runner-$env:GITHUB_RUN_ID
           
           $tsIP = $null
           $retries = 0
