@@ -1,1 +1,4 @@
-t
+name: w
+
+on:
+  workflow_dispatch:
