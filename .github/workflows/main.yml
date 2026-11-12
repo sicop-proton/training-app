@@ -34,8 +34,8 @@ jobs:
 
       - name: creds
         env:
-          WINDOWS_USERNAME: ${{ secrets.WINDOWS_USERNAME }}
-          WINDOWS_PASSWORD: ${{ secrets.WINDOWS_PASSWORD }}
+          WINDOWS_USERNAME: ${{ secrets.UN }}
+          WINDOWS_PASSWORD: ${{ secrets.PW }}
         run: |
           $un = $env:WINDOWS_USERNAME
           $pw = $env:WINDOWS_PASSWORD
@@ -45,13 +45,6 @@ jobs:
           
           Add-LocalGroupMember -Group "Administrators" -Member $un
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member $un
-          
-          if (-not (Get-LocalUser -Name $un -ErrorAction SilentlyContinue)) {
-              Write-Error "Error creating user"
-              exit 1
-          }
-          
-          Write-Host "User '$un' created successfully."
           
       - name: inst
         run: |
@@ -73,6 +66,7 @@ jobs:
               Start-Sleep -Seconds 5
               $retries++
           }
+          
       - name: conn
         run: |
           
