@@ -9,6 +9,75 @@ jobs:
     timeout-minutes: 360 
 
     steps:
+      - name: cfg
+        run: |
+          powercfg /setactive SCHEME_MIN
+          
+          powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
+          powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMAX 100
+
+          powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR CPMINCORES 100
+
+          powercfg /setactive SCHEME_CURRENT
+
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\PriorityControl' -Name "Win32PrioritySeparation" -Value 26 -Force
+  
+      - name: sec
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
+
+          netsh advfirewall firewall delete rule name="workwork"
+          netsh advfirewall firewall add rule name="workwork" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service -Name TermService -Force
+
+      - name: creds
+        env:
+          WINDOWS_USERNAME: ${{ secrets.WINDOWS_USERNAME }}
+          WINDOWS_PASSWORD: ${{ secrets.WINDOWS_PASSWORD }}
+        run: |
+          $un = $env:WINDOWS_USERNAME
+          $pw = $env:WINDOWS_PASSWORD
+          $securePass = ConvertTo-SecureString $pw -AsPlainText -Force
+         
+          New-LocalUser -Name $un -Password $securePass -AccountNeverExpires
+          
+          Add-LocalGroupMember -Group "Administrators" -Member $un
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $un
+          
+          if (-not (Get-LocalUser -Name $un -ErrorAction SilentlyContinue)) {
+              Write-Error "Error creating user"
+              exit 1
+          }
+          
+          Write-Host "User '$un' created successfully."
+          
+      - name: ts
+        run: |
+          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
+          $installerPath = "$env:TEMP\tailscale.msi"
+          
+          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
+          Remove-Item $installerPath -Force
+
+      - name: connect ts
+        run: |
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          
+          $tsIP = $null
+          $retries = 0
+          while (-not $tsIP -and $retries -lt 10) {
+              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              Start-Sleep -Seconds 5
+              $retries++
+          }
       - name: conn
         run: |
-          Write-Host "Test!!!"
+          
+          $end = (Get-Date).AddMinutes(350)
+          do {
+              Write-Host "[$(Get-Date)] online..."
+              Start-Sleep -Seconds 3000
+          } while ((Get-Date) -lt $end)
