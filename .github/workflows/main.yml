@@ -69,7 +69,6 @@ jobs:
           
       - name: conn
         run: |
-          
           $end = (Get-Date).AddMinutes(350)
           do {
               Write-Host "[$(Get-Date)] online..."
